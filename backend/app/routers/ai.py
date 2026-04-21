@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.schemas import OrganizeRequest, OrganizeResponse, ResearchRequest, ResearchResponse, NoteListItem
+from app.schemas import OrganizeRequest, OrganizeResponse, ResearchRequest, ResearchResponse, NoteListItem, NoteUpdate
 from app.services.ai_service import organize_content, research_topic, expand_note
-from app.services.note_service import get_note
+from app.services.note_service import get_note, update_note
 
 router = APIRouter(prefix="/api/ai", tags=["ai"])
 
@@ -41,6 +41,11 @@ def api_research(request: ResearchRequest, db: Session = Depends(get_db)):
             topic=topic,
             existing_content=existing_content,
         )
+
+    if request.note_id:
+        update_note(db, request.note_id, NoteUpdate(
+            research_content=research_content,
+        ))
 
     return ResearchResponse(
         research_content=research_content,

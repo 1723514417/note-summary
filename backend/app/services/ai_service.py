@@ -125,8 +125,11 @@ def expand_note(title: str, content: str) -> str:
 
 
 def generate_embedding(text: str) -> List[float]:
+    print(f"[DEBUG] 调用 Embedding API, model={settings.OPENAI_EMBEDDING_MODEL}, base_url={settings.OPENAI_EMBEDDING_BASE_URL}")
     response = embedding_client.embeddings.create(
         model=settings.OPENAI_EMBEDDING_MODEL,
         input=text,
     )
-    return response.data[0].embedding
+    embedding = response.data[0].embedding
+    print(f"[DEBUG] Embedding 生成完成, 维度={len(embedding)}")
+    return embedding

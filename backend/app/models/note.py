@@ -24,6 +24,7 @@ class Note(Base):
     category_id = Column(Integer, ForeignKey("categories.id", ondelete="SET NULL"), nullable=True)
     keywords = Column(Text, nullable=True)
     source_type = Column(String(50), nullable=True)
+    research_content = Column(Text, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.datetime.now(pytz.timezone('Asia/Shanghai')))
     updated_at = Column(DateTime, default=lambda: datetime.datetime.now(pytz.timezone('Asia/Shanghai')), onupdate=lambda: datetime.datetime.now(pytz.timezone('Asia/Shanghai')))
 

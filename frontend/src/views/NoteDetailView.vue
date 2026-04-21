@@ -9,7 +9,20 @@
       <div class="flex-between mb-16">
         <button class="btn btn-secondary btn-sm" @click="$router.back()">← 返回</button>
         <div class="flex-row">
-          <button class="btn btn-secondary btn-sm" @click="doResearch" :disabled="researching">
+          <button
+            v-if="note.research_content"
+            class="btn btn-secondary btn-sm"
+            disabled
+            style="opacity: 0.7; cursor: default;"
+          >
+            ✅ 已调研
+          </button>
+          <button
+            v-else
+            class="btn btn-secondary btn-sm"
+            @click="doResearch"
+            :disabled="researching"
+          >
             {{ researching ? '调研中...' : '🔬 AI 调研' }}
           </button>
           <button class="btn btn-danger btn-sm" @click="removeNote">删除</button>
@@ -41,9 +54,14 @@
         </details>
       </div>
 
-      <div v-if="researchResult" class="card mt-16">
+      <div v-if="researching" class="card mt-16">
+        <h3 style="margin-bottom: 12px">🔬 AI 调研中...</h3>
+        <div class="loading" style="padding: 20px">正在生成调研内容，请稍候...</div>
+      </div>
+
+      <div v-else-if="note.research_content" class="card mt-16">
         <h3 style="margin-bottom: 12px">🔬 AI 调研结果</h3>
-        <div class="markdown-content" v-html="renderMarkdown(researchResult)"></div>
+        <div class="markdown-content" v-html="renderMarkdown(note.research_content)"></div>
       </div>
     </div>
   </div>
@@ -65,7 +83,6 @@ export default {
     const note = ref(null)
     const loading = ref(true)
     const researching = ref(false)
-    const researchResult = ref(null)
 
     const sourceTypes = {
       life: '生活', thought: '感想', knowledge: '知识',
@@ -95,10 +112,9 @@ export default {
 
     const doResearch = async () => {
       researching.value = true
-      researchResult.value = null
       try {
         const res = await aiApi.research({ note_id: note.value.id })
-        researchResult.value = res.data.research_content
+        note.value.research_content = res.data.research_content
       } catch (e) {
         alert('调研失败: ' + (e.response?.data?.detail || e.message))
       } finally {
@@ -119,7 +135,7 @@ export default {
     onMounted(loadNote)
 
     return {
-      note, loading, researching, researchResult,
+      note, loading, researching,
       sourceTypeLabel, renderMarkdown, formatDate, doResearch, removeNote,
     }
   },

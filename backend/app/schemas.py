@@ -16,6 +16,7 @@ class NoteUpdate(BaseModel):
     category_id: Optional[int] = None
     keywords: Optional[str] = None
     source_type: Optional[str] = None
+    research_content: Optional[str] = None
 
 
 class NoteResponse(BaseModel):
@@ -27,6 +28,7 @@ class NoteResponse(BaseModel):
     category_id: Optional[int] = None
     keywords: Optional[str] = None
     source_type: Optional[str] = None
+    research_content: Optional[str] = None
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     tags: List["TagResponse"] = []

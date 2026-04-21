@@ -3,30 +3,79 @@
     <h1 class="page-title">记录新内容</h1>
 
     <div class="card mb-16">
-      <textarea
-        v-model="rawContent"
-        placeholder="在这里输入你想记录的内容...&#10;&#10;可以是生活琐事、个人感想、学到的知识、灵感创意等任何内容。&#10;AI 会自动帮你整理、分类并生成摘要。"
-        rows="8"
-      ></textarea>
-      <div class="flex-between mt-16">
-        <div class="flex-row">
-          <select v-model="sourceType" class="btn btn-secondary">
-            <option value="">自动识别类型</option>
-            <option value="life">生活</option>
-            <option value="thought">感想</option>
-            <option value="knowledge">知识</option>
-            <option value="todo">待办</option>
-            <option value="idea">灵感</option>
-            <option value="work">工作</option>
-          </select>
+      <div class="input-layout">
+        <div class="input-left">
+          <textarea
+            v-model="rawContent"
+            placeholder="在这里输入你想记录的内容...&#10;&#10;可以是生活琐事、个人感想、学到的知识、灵感创意等任何内容。&#10;AI 会自动帮你整理、分类并生成摘要。&#10;&#10;支持 Markdown 格式，右侧可实时预览。"
+            rows="12"
+          ></textarea>
+          <div class="flex-between mt-12">
+            <div class="flex-row">
+              <select v-model="sourceType" class="btn btn-secondary">
+                <option value="">自动识别类型</option>
+                <option value="life">生活</option>
+                <option value="thought">感想</option>
+                <option value="knowledge">知识</option>
+                <option value="todo">待办</option>
+                <option value="idea">灵感</option>
+                <option value="work">工作</option>
+              </select>
+            </div>
+            <div class="flex-row">
+              <button class="btn btn-secondary" @click="previewOrganize" :disabled="!rawContent.trim() || loading">
+                👁️ 预览整理
+              </button>
+              <button class="btn btn-primary" @click="submitNote" :disabled="!rawContent.trim() || loading">
+                {{ loading ? '⏳ AI 整理中...' : '💾 保存记录' }}
+              </button>
+            </div>
+          </div>
         </div>
-        <div class="flex-row">
-          <button class="btn btn-secondary" @click="previewOrganize" :disabled="!rawContent.trim() || loading">
-            👁️ 预览整理
-          </button>
-          <button class="btn btn-primary" @click="submitNote" :disabled="!rawContent.trim() || loading">
-            {{ loading ? '⏳ AI 整理中...' : '💾 保存记录' }}
-          </button>
+        <div class="input-right">
+          <div v-if="rawContent.trim()" class="preview-panel">
+            <div class="preview-header">实时预览</div>
+            <div class="markdown-content preview-body" v-html="renderMarkdown(rawContent)"></div>
+          </div>
+          <div v-else class="tips-panel">
+            <div class="tips-header">💡 使用提示</div>
+            <div class="tips-list">
+              <div class="tip-item">
+                <span class="tip-icon">✍️</span>
+                <div>
+                  <div class="tip-title">自由输入</div>
+                  <div class="tip-desc">输入任意内容，AI 自动整理归类</div>
+                </div>
+              </div>
+              <div class="tip-item">
+                <span class="tip-icon">📝</span>
+                <div>
+                  <div class="tip-title">Markdown 支持</div>
+                  <div class="tip-desc">支持标题、列表、代码块等格式</div>
+                </div>
+              </div>
+              <div class="tip-item">
+                <span class="tip-icon">🏷️</span>
+                <div>
+                  <div class="tip-title">智能分类</div>
+                  <div class="tip-desc">自动生成标题、摘要、标签和分类</div>
+                </div>
+              </div>
+              <div class="tip-item">
+                <span class="tip-icon">🔍</span>
+                <div>
+                  <div class="tip-title">语义搜索</div>
+                  <div class="tip-desc">用自然语言模糊搜索你的知识库</div>
+                </div>
+              </div>
+            </div>
+            <div v-if="recentNotes.length > 0" class="tips-stats">
+              <div class="stat-item">
+                <span class="stat-num">{{ recentNotes.length }}</span>
+                <span class="stat-label">条记录</span>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
