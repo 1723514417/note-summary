@@ -25,9 +25,12 @@ def _migrate_notes_table(conn):
     insp = inspect(engine)
     if "notes" not in insp.get_table_names():
         return
-    existing = {col["name"] for col in insp.get_columns("notes")}
-    if "research_content" not in existing:
-        conn.execute(text("ALTER TABLE notes ADD COLUMN research_content TEXT"))
+    try:
+        existing = {col["name"] for col in insp.get_columns("notes")}
+        if "research_content" not in existing:
+            conn.execute(text("ALTER TABLE notes ADD COLUMN research_content TEXT"))
+    except Exception as e:
+        print(f"[WARN] 迁移 notes 表失败: {e}")
 
 
 def init_db():
