@@ -68,7 +68,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, inject, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { notesApi, aiApi } from '../api'
 import MarkdownIt from 'markdown-it'
@@ -78,6 +78,7 @@ const md = new MarkdownIt()
 export default {
   name: 'NoteDetailView',
   setup() {
+    const toast = inject('toast')
     const route = useRoute()
     const router = useRouter()
     const note = ref(null)
@@ -126,9 +127,10 @@ export default {
       if (!confirm('确定删除此笔记？')) return
       try {
         await notesApi.delete(note.value.id)
+        toast('删除成功')
         router.push('/')
       } catch (e) {
-        alert('删除失败')
+        toast('删除失败', 'error')
       }
     }
 

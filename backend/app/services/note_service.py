@@ -40,33 +40,25 @@ def create_note_with_ai(db: Session, note_data: NoteCreate) -> Note:
     db.refresh(note)
     print(f"[DEBUG] Note committed, id={note.id}")
 
-    # 后台执行 embedding 和向量存储，不阻塞主流程
-    import threading
-    
-    def _background_embedding():
+    try:
+        text_for_embedding = f"{note.title} {note.raw_content} {note.summary or ''}"
+        print(f"[DEBUG] 开始生成 embedding...")
+        embedding = generate_embedding(text_for_embedding)
+        print(f"[DEBUG] Embedding 生成完成, 维度: {len(embedding)}")
+
         try:
-            text_for_embedding = f"{note.title} {note.raw_content} {note.summary or ''}"
-            print(f"[DEBUG] 后台 - 开始生成 embedding...")
-            embedding = generate_embedding(text_for_embedding)
-            print(f"[DEBUG] 后台 - Embedding 生成完成, 维度: {len(embedding)}")
-            
-            try:
-                print(f"[DEBUG] 后台 - 开始向量存储...")
-                add_to_vector(note.id, text_for_embedding, embedding)
-                print(f"[DEBUG] 后台 - 向量存储完成")
-            except Exception as ve:
-                print(f"[DEBUG] 后台 - 向量存储失败: {ve}")
-                import traceback
-                traceback.print_exc()
-                
-        except Exception as e:
-            print(f"[DEBUG] 后台 - Embedding 失败: {e}")
+            print(f"[DEBUG] 开始向量存储...")
+            add_to_vector(note.id, text_for_embedding, embedding)
+            print(f"[DEBUG] 向量存储完成")
+        except Exception as ve:
+            print(f"[DEBUG] 向量存储失败: {ve}")
             import traceback
             traceback.print_exc()
-    
-    # 启动后台线程
-    threading.Thread(target=_background_embedding, daemon=True).start()
-    print(f"[DEBUG] 后台 embedding 线程已启动")
+
+    except Exception as e:
+        print(f"[DEBUG] Embedding 失败: {e}")
+        import traceback
+        traceback.print_exc()
 
     return note
 

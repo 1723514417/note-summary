@@ -116,7 +116,7 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, inject, onMounted } from 'vue'
 import { notesApi, aiApi } from '../api'
 import MarkdownIt from 'markdown-it'
 
@@ -125,6 +125,7 @@ const md = new MarkdownIt()
 export default {
   name: 'HomeView',
   setup() {
+    const toast = inject('toast')
     const rawContent = ref('')
     const sourceType = ref('')
     const loading = ref(false)
@@ -169,7 +170,7 @@ export default {
         const res = await aiApi.organize({ raw_content: rawContent.value })
         preview.value = res.data
       } catch (e) {
-        alert('AI 整理失败: ' + (e.response?.data?.detail || e.message))
+        toast('AI 整理失败: ' + (e.response?.data?.detail || e.message), 'error')
       } finally {
         loading.value = false
       }
@@ -186,10 +187,10 @@ export default {
         })
         rawContent.value = ''
         sourceType.value = ''
-        alert('保存成功！')
+        toast('保存成功！')
         loadRecentNotes()
       } catch (e) {
-        alert('保存失败: ' + (e.response?.data?.detail || e.message))
+        toast('保存失败: ' + (e.response?.data?.detail || e.message), 'error')
       } finally {
         loading.value = false
       }

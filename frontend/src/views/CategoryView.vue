@@ -32,7 +32,7 @@
               - {{ cat.description }}
             </span>
           </h3>
-          <button class="btn btn-danger btn-sm" @click="removeCategory(cat.id)">删除</button>
+          <button class="btn btn-danger btn-sm" @click="removeCategory(cat.id, cat.name)">删除</button>
         </div>
         <div v-if="cat.children && cat.children.length">
           <div v-for="child in cat.children" :key="child.id" style="margin-left: 20px; padding: 8px 0; border-bottom: 1px solid var(--border)">
@@ -63,12 +63,13 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, inject, onMounted } from 'vue'
 import { categoriesApi, notesApi } from '../api'
 
 export default {
   name: 'CategoryView',
   setup() {
+    const toast = inject('toast')
     const categories = ref([])
     const loadingCategories = ref(false)
     const newCategoryName = ref('')
@@ -91,19 +92,27 @@ export default {
       try {
         await categoriesApi.create({ name: newCategoryName.value })
         newCategoryName.value = ''
+        toast('分类创建成功')
         loadCategories()
       } catch (e) {
-        alert('创建失败: ' + (e.response?.data?.detail || e.message))
+        toast('创建失败: ' + (e.response?.data?.detail || e.message), 'error')
       }
     }
 
-    const removeCategory = async (id) => {
-      if (!confirm('确定删除此分类？')) return
+    const removeCategory = async (id, name) => {
+      if (!confirm(`确定删除分类「${name}」及其下所有笔记？`)) return
       try {
+        let res = await notesApi.list({ category_id: id, limit: 1000 })
+        const notes = res.data.notes || []
+        for (const note of notes) {
+          await notesApi.delete(note.id)
+        }
         await categoriesApi.delete(id)
+        selectedNotes.value = []
+        toast(`已删除分类「${name}」及 ${notes.length} 条笔记`)
         loadCategories()
       } catch (e) {
-        alert('删除失败')
+        toast('删除失败', 'error')
       }
     }
 

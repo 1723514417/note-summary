@@ -17,7 +17,7 @@ def api_create_note(note_data: NoteCreate, db: Session = Depends(get_db)):
 @router.get("", response_model=SearchResult)
 def api_list_notes(
     skip: int = Query(0, ge=0),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     category_id: Optional[int] = None,
     source_type: Optional[str] = None,
     keyword: Optional[str] = None,

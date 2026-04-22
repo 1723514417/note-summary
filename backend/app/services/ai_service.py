@@ -1,7 +1,10 @@
 import json
 from typing import List, Optional
+import httpx
 from openai import OpenAI
 from app.config import settings
+
+MULTIMODAL_EMBEDDING_MODELS = {"qwen3-vl-embedding", "qwen2.5-vl-embedding"}
 
 client = OpenAI(
     api_key=settings.OPENAI_API_KEY,
@@ -94,7 +97,6 @@ def organize_content(raw_content: str) -> dict:
         result_text = result_text.strip()
     return json.loads(result_text)
 
-
 def research_topic(topic: str, existing_content: str = "") -> str:
     prompt = RESEARCH_PROMPT.format(
         existing_content=existing_content or "暂无已有知识内容",
@@ -124,12 +126,48 @@ def expand_note(title: str, content: str) -> str:
     return response.choices[0].message.content.strip()
 
 
+EMBEDDING_DIMENSION = 2560
+
+
 def generate_embedding(text: str) -> List[float]:
-    print(f"[DEBUG] 调用 Embedding API, model={settings.OPENAI_EMBEDDING_MODEL}, base_url={settings.OPENAI_EMBEDDING_BASE_URL}")
+    model = settings.OPENAI_EMBEDDING_MODEL
+    print(f"[DEBUG] 调用 Embedding API, model={model}, base_url={settings.OPENAI_EMBEDDING_BASE_URL}")
+
+    if model in MULTIMODAL_EMBEDDING_MODELS:
+        return _generate_multimodal_embedding(text, model)
+
+    return _generate_text_embedding(text, model)
+
+
+def _generate_multimodal_embedding(text: str, model: str) -> List[float]:
+    url = "https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding"
+    headers = {
+        "Authorization": f"Bearer {settings.OPENAI_EMBEDDING_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model,
+        "input": {
+            "contents": [{"text": text}]
+        },
+    }
+    resp = httpx.post(url, headers=headers, json=payload, timeout=120)
+    data = resp.json()
+    if resp.status_code != 200 or "output" not in data:
+        raise RuntimeError(f"DashScope multimodal embedding API 调用失败: {data}")
+    embedding = data["output"]["embeddings"][0]["embedding"]
+    print(f"[DEBUG] Multimodal Embedding 生成完成, 维度={len(embedding)}")
+    return embedding
+
+
+def _generate_text_embedding(text: str, model: str) -> List[float]:
     response = embedding_client.embeddings.create(
-        model=settings.OPENAI_EMBEDDING_MODEL,
+        model=model,
         input=text,
+        dimensions=EMBEDDING_DIMENSION,
     )
     embedding = response.data[0].embedding
-    print(f"[DEBUG] Embedding 生成完成, 维度={len(embedding)}")
+    print(f"[DEBUG] Text Embedding 生成完成, 维度={len(embedding)}")
+    if len(embedding) != EMBEDDING_DIMENSION:
+        raise ValueError(f"Embedding 维度不匹配: 期望 {EMBEDDING_DIMENSION}, 实际 {len(embedding)}")
     return embedding
