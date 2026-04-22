@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database import init_db
-from app.routers import notes, search, categories, tags, ai
+from app.routers import notes, search, categories, tags, ai, auth
 import os
 
 
@@ -23,6 +23,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
 app.include_router(notes.router)
 app.include_router(search.router)
 app.include_router(categories.router)

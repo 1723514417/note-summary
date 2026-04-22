@@ -38,7 +38,7 @@
 
         <h1 style="font-size: 22px; margin-bottom: 12px">{{ note.title }}</h1>
 
-        <div v-if="note.summary" style="background: #f8fafc; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid var(--primary)">
+        <div v-if="note.summary" style="background: var(--summary-bg); padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; border-left: 4px solid var(--primary)">
           <strong>摘要：</strong>{{ note.summary }}
         </div>
 
@@ -48,7 +48,7 @@
           <summary style="cursor: pointer; color: var(--text-secondary); font-size: 14px">
             查看原始输入
           </summary>
-          <div style="margin-top: 8px; padding: 12px; background: #f8fafc; border-radius: 8px; white-space: pre-wrap; font-size: 14px">
+          <div style="margin-top: 8px; padding: 12px; background: var(--summary-bg); border-radius: 8px; white-space: pre-wrap; font-size: 14px">
             {{ note.raw_content }}
           </div>
         </details>

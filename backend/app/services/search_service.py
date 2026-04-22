@@ -8,14 +8,14 @@ from app.database import is_postgres
 
 
 def fulltext_search(
-    db: Session, query: str, limit: int = 20, offset: int = 0
+    db: Session, query: str, user_id: int, limit: int = 20, offset: int = 0
 ) -> tuple[List[Note], int]:
-    print(f"[DEBUG] fulltext_search 开始, query={query}")
+    print(f"[DEBUG] fulltext_search 开始, query={query}, user_id={user_id}")
     try:
         if is_postgres():
-            return _fulltext_search_pg(db, query, limit, offset)
+            return _fulltext_search_pg(db, query, user_id, limit, offset)
         else:
-            return _fulltext_search_sqlite(db, query, limit, offset)
+            return _fulltext_search_sqlite(db, query, user_id, limit, offset)
     except Exception as e:
         print(f"[DEBUG] fulltext_search 失败: {e}")
         import traceback
@@ -24,7 +24,7 @@ def fulltext_search(
 
 
 def _fulltext_search_sqlite(
-    db: Session, query: str, limit: int, offset: int
+    db: Session, query: str, user_id: int, limit: int, offset: int
 ) -> tuple[List[Note], int]:
     count_result = db.execute(
         text("SELECT COUNT(*) FROM notes_fts WHERE notes_fts MATCH :query"),
@@ -36,11 +36,11 @@ def _fulltext_search_sqlite(
         text(
             "SELECT n.* FROM notes n "
             "JOIN notes_fts f ON f.rowid = n.id "
-            "WHERE notes_fts MATCH :query "
+            "WHERE notes_fts MATCH :query AND n.user_id = :user_id "
             "ORDER BY rank "
             "LIMIT :limit OFFSET :offset"
         ),
-        {"query": query, "limit": limit, "offset": offset},
+        {"query": query, "user_id": user_id, "limit": limit, "offset": offset},
     )
     rows = result.fetchall()
     note_ids = [row[0] for row in rows]
@@ -57,32 +57,40 @@ def _fulltext_search_sqlite(
 
 
 def _fulltext_search_pg(
-    db: Session, query: str, limit: int, offset: int
+    db: Session, query: str, user_id: int, limit: int = 20, offset: int = 0
 ) -> tuple[List[Note], int]:
-    ts_query = " | ".join(query.split())
+    pattern = f"%{query}%"
 
     count_result = db.execute(
         text("""
             SELECT COUNT(*) FROM notes
-            WHERE to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(raw_content,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(keywords,''))
-                  @@ to_tsquery('simple', :query)
+            WHERE user_id = :user_id
+            AND (title ILIKE :pattern
+                 OR raw_content ILIKE :pattern
+                 OR summary ILIKE :pattern
+                 OR keywords ILIKE :pattern)
         """),
-        {"query": ts_query},
+        {"pattern": pattern, "user_id": user_id},
     )
     total = count_result.scalar()
 
     result = db.execute(
         text("""
-            SELECT n.* FROM notes n
-            WHERE to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(raw_content,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(keywords,''))
-                  @@ to_tsquery('simple', :query)
-            ORDER BY ts_rank(
-                to_tsvector('simple', coalesce(title,'') || ' ' || coalesce(raw_content,'') || ' ' || coalesce(summary,'') || ' ' || coalesce(keywords,'')),
-                to_tsquery('simple', :query)
-            ) DESC
+            SELECT * FROM notes
+            WHERE user_id = :user_id
+            AND (title ILIKE :pattern
+                 OR raw_content ILIKE :pattern
+                 OR summary ILIKE :pattern
+                 OR keywords ILIKE :pattern)
+            ORDER BY
+                CASE WHEN title ILIKE :pattern THEN 0
+                     WHEN keywords ILIKE :pattern THEN 1
+                     WHEN summary ILIKE :pattern THEN 2
+                     ELSE 3 END,
+                created_at DESC
             LIMIT :limit OFFSET :offset
         """),
-        {"query": ts_query, "limit": limit, "offset": offset},
+        {"pattern": pattern, "user_id": user_id, "limit": limit, "offset": offset},
     )
     rows = result.fetchall()
     note_ids = [row[0] for row in rows]
@@ -94,14 +102,14 @@ def _fulltext_search_pg(
         id_order = {nid: idx for idx, nid in enumerate(note_ids)}
         notes.sort(key=lambda n: id_order.get(n.id, 999))
 
-    print(f"[DEBUG] fulltext_search (postgres) 完成, 返回 {len(notes)} 条")
+    print(f"[DEBUG] fulltext_search (postgres ILIKE) 完成, 返回 {len(notes)} 条")
     return notes, total
 
 
 def semantic_search(
-    db: Session, query: str, limit: int = 10
+    db: Session, query: str, user_id: int, limit: int = 10
 ) -> List[Note]:
-    print(f"[DEBUG] semantic_search 开始, query={query}")
+    print(f"[DEBUG] semantic_search 开始, query={query}, user_id={user_id}")
     try:
         embedding = generate_embedding(query)
         print(f"[DEBUG] semantic_search - embedding 生成完成, 维度: {len(embedding)}")
@@ -113,7 +121,7 @@ def semantic_search(
             return []
 
         note_ids = [item["id"] for item in similar_items]
-        result = db.execute(select(Note).where(Note.id.in_(note_ids)))
+        result = db.execute(select(Note).where(Note.id.in_(note_ids), Note.user_id == user_id))
         notes = list(result.scalars().all())
 
         id_order = {item["id"]: idx for idx, item in enumerate(similar_items)}
@@ -129,12 +137,12 @@ def semantic_search(
 
 
 def hybrid_search(
-    db: Session, query: str, limit: int = 20
+    db: Session, query: str, user_id: int, limit: int = 20
 ) -> tuple[List[Note], int]:
-    print(f"[DEBUG] hybrid_search 开始, query={query}")
+    print(f"[DEBUG] hybrid_search 开始, query={query}, user_id={user_id}")
 
     try:
-        fts_notes, fts_total = fulltext_search(db, query, limit=limit)
+        fts_notes, fts_total = fulltext_search(db, query, user_id, limit=limit)
     except Exception as e:
         print(f"[DEBUG] hybrid_search - fulltext 失败: {e}")
         fts_notes, fts_total = [], 0
@@ -144,7 +152,7 @@ def hybrid_search(
         return fts_notes[:limit], len(fts_notes)
 
     try:
-        semantic_notes = semantic_search(db, query, limit=limit)
+        semantic_notes = semantic_search(db, query, user_id, limit=limit)
     except Exception as e:
         print(f"[DEBUG] hybrid_search - semantic 失败: {e}")
         semantic_notes = []

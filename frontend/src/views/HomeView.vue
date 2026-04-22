@@ -187,7 +187,7 @@ export default {
         })
         rawContent.value = ''
         sourceType.value = ''
-        toast('保存成功！')
+        toast('保存成功！', 'success', 3000)
         loadRecentNotes()
       } catch (e) {
         toast('保存失败: ' + (e.response?.data?.detail || e.message), 'error')

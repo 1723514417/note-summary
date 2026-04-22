@@ -3,6 +3,38 @@ from typing import Optional, List
 from datetime import datetime
 
 
+class UserRegister(BaseModel):
+    username: str
+    password: str
+    confirm_password: str
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class ChangePassword(BaseModel):
+    old_password: str
+    new_password: str
+    confirm_password: str
+
+
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse
+
+
 class NoteCreate(BaseModel):
     raw_content: str
     category_id: Optional[int] = None

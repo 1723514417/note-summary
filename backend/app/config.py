@@ -17,5 +17,7 @@ class Settings:
         "postgresql://postgres:postgres@localhost:5432/knowledge_db"
     )
 
+    SECRET_KEY: str = os.getenv("SECRET_KEY", "change-this-to-a-random-secret-key")
+
 
 settings = Settings()

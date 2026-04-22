@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models import Tag, Note, note_tags
 from app.schemas import TagResponse, NoteListItem
+from app.services.auth_service import get_current_user
+from app.models import User
 
 router = APIRouter(prefix="/api/tags", tags=["tags"])
 
@@ -20,11 +22,12 @@ def api_get_tag_notes(
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     result = db.execute(
         select(Note)
         .join(note_tags, Note.id == note_tags.c.note_id)
-        .where(note_tags.c.tag_id == tag_id)
+        .where(note_tags.c.tag_id == tag_id, Note.user_id == current_user.id)
         .order_by(Note.created_at.desc())
         .offset(skip)
         .limit(limit)

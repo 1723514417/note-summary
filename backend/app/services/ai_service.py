@@ -95,7 +95,18 @@ def organize_content(raw_content: str) -> dict:
         if result_text.startswith("json"):
             result_text = result_text[4:]
         result_text = result_text.strip()
-    return json.loads(result_text)
+    try:
+        parsed = json.loads(result_text)
+    except json.JSONDecodeError:
+        start = result_text.find("{")
+        end = result_text.rfind("}") + 1
+        if start >= 0 and end > start:
+            parsed = json.loads(result_text[start:end])
+        else:
+            raise
+    if not isinstance(parsed, dict):
+        raise ValueError(f"AI 返回了非 dict 类型: {type(parsed)}")
+    return parsed
 
 def research_topic(topic: str, existing_content: str = "") -> str:
     prompt = RESEARCH_PROMPT.format(

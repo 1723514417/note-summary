@@ -1,7 +1,10 @@
-from sqlalchemy import create_engine, text, event
+from sqlalchemy import create_engine, text, event, inspect
 from sqlalchemy.orm import sessionmaker, Session, DeclarativeBase
+from sqlalchemy.pool import QueuePool
 from app.config import settings
 import os
+import threading
+import time
 
 
 database_url = settings.DATABASE_URL
@@ -20,9 +23,19 @@ else:
     engine = create_engine(
         database_url,
         echo=False,
+        poolclass=QueuePool,
         pool_size=10,
         max_overflow=20,
+        pool_timeout=30,
+        pool_recycle=1800,
         pool_pre_ping=True,
+        pool_use_lifo=True,
+        connect_args={
+            "keepalives": 1,
+            "keepalives_idle": 30,
+            "keepalives_interval": 10,
+            "keepalives_count": 5,
+        },
     )
 
     @event.listens_for(engine, "connect")
@@ -30,6 +43,21 @@ else:
         cursor = dbapi_conn.cursor()
         cursor.execute("CREATE EXTENSION IF NOT EXISTS vector")
         cursor.close()
+
+    _stop_event = threading.Event()
+
+    def _pool_health_check():
+        while not _stop_event.is_set():
+            _stop_event.wait(120)
+            if _stop_event.is_set():
+                break
+            try:
+                engine.pool.status()
+            except Exception:
+                pass
+
+    _health_thread = threading.Thread(target=_pool_health_check, daemon=True)
+    _health_thread.start()
 
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
@@ -50,6 +78,27 @@ def _init_postgres():
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
+    _migrate_add_user_id()
+
+
+def _migrate_add_user_id():
+    insp = inspect(engine)
+    for table_name in ("notes", "categories"):
+        if table_name not in insp.get_table_names():
+            continue
+        existing = {col["name"] for col in insp.get_columns(table_name)}
+        if "user_id" not in existing:
+            try:
+                with engine.begin() as conn:
+                    conn.execute(text(
+                        f"ALTER TABLE {table_name} ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE"
+                    ))
+                    conn.execute(text(
+                        f"CREATE INDEX IF NOT EXISTS ix_{table_name}_user_id ON {table_name} (user_id)"
+                    ))
+                print(f"[MIGRATE] {table_name}.user_id added")
+            except Exception as e:
+                print(f"[WARN] migrate {table_name} failed: {e}")
 
 
 def _init_sqlite():

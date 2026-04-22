@@ -5,23 +5,24 @@ from app.models import Category
 from app.schemas import CategoryCreate, CategoryUpdate
 
 
-def get_categories(db: Session) -> List[Category]:
+def get_categories(db: Session, user_id: int) -> List[Category]:
     result = db.execute(
-        select(Category).where(Category.parent_id.is_(None)).order_by(Category.name)
+        select(Category).where(Category.parent_id.is_(None), Category.user_id == user_id).order_by(Category.name)
     )
     return list(result.scalars().all())
 
 
-def get_category(db: Session, category_id: int) -> Optional[Category]:
-    result = db.execute(select(Category).where(Category.id == category_id))
+def get_category(db: Session, category_id: int, user_id: int) -> Optional[Category]:
+    result = db.execute(select(Category).where(Category.id == category_id, Category.user_id == user_id))
     return result.scalar_one_or_none()
 
 
-def create_category(db: Session, data: CategoryCreate) -> Category:
+def create_category(db: Session, data: CategoryCreate, user_id: int) -> Category:
     category = Category(
         name=data.name,
         parent_id=data.parent_id,
         description=data.description,
+        user_id=user_id,
     )
     db.add(category)
     db.commit()
@@ -30,9 +31,9 @@ def create_category(db: Session, data: CategoryCreate) -> Category:
 
 
 def update_category(
-    db: Session, category_id: int, data: CategoryUpdate
+    db: Session, category_id: int, data: CategoryUpdate, user_id: int
 ) -> Optional[Category]:
-    category = get_category(db, category_id)
+    category = get_category(db, category_id, user_id)
     if not category:
         return None
     update_data = data.model_dump(exclude_unset=True)
@@ -43,8 +44,8 @@ def update_category(
     return category
 
 
-def delete_category(db: Session, category_id: int) -> bool:
-    category = get_category(db, category_id)
+def delete_category(db: Session, category_id: int, user_id: int) -> bool:
+    category = get_category(db, category_id, user_id)
     if not category:
         return False
     db.delete(category)
