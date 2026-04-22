@@ -1,7 +1,6 @@
 from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, Table
 from sqlalchemy.orm import relationship
-from sqlalchemy.sql import func
-from app.database import Base
+from app.database import Base, is_postgres
 import datetime
 import pytz
 
@@ -52,3 +51,13 @@ class Tag(Base):
     name = Column(String(100), unique=True, nullable=False)
 
     notes = relationship("Note", secondary=note_tags, back_populates="tags")
+
+
+if is_postgres():
+    from pgvector.sqlalchemy import Vector
+
+    class NoteEmbedding(Base):
+        __tablename__ = "note_embeddings"
+
+        note_id = Column(Integer, ForeignKey("notes.id", ondelete="CASCADE"), primary_key=True)
+        embedding = Column(Vector(1024), nullable=False)

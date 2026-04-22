@@ -11,7 +11,11 @@ class Settings:
     OPENAI_EMBEDDING_MODEL: str = os.getenv("OPENAI_EMBEDDING_MODEL", "tongyi-embedding-vision-flash")
     OPENAI_EMBEDDING_API_KEY: str = os.getenv("OPENAI_EMBEDDING_API_KEY", "") or os.getenv("OPENAI_API_KEY", "")
     OPENAI_EMBEDDING_BASE_URL: str = os.getenv("OPENAI_EMBEDDING_BASE_URL", "") or os.getenv("OPENAI_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./data/knowledge.db")
+
+    DATABASE_URL: str = os.getenv(
+        "DATABASE_URL",
+        "postgresql://postgres:postgres@localhost:5432/knowledge_db"
+    )
 
 
 settings = Settings()
