@@ -1,7 +1,8 @@
 <template>
   <div>
-    <h1 class="page-title">记录新内容</h1>
+    <h1 class="page-title">{{ isStarred ? '⭐ 已收藏' : '记录新内容' }}</h1>
 
+    <template v-if="!isStarred">
     <div class="card mb-16">
       <div class="input-layout">
         <div class="input-left">
@@ -90,12 +91,15 @@
       <p class="note-summary mb-8">{{ preview.summary }}</p>
       <div class="markdown-content" v-html="renderMarkdown(preview.organized_content)"></div>
     </div>
+    </template>
 
-    <h2 class="page-title" style="font-size: 18px; margin-top: 24px">最近记录</h2>
+    <h2 class="page-title" style="font-size: 18px; margin-top: 24px">
+      {{ isStarred ? '' : '最近记录' }}
+    </h2>
     <div v-if="loadingNotes" class="loading">加载中...</div>
     <div v-else-if="recentNotes.length === 0" class="empty-state">
-      <h3>还没有记录</h3>
-      <p>在上方输入内容，开始构建你的个人知识库吧！</p>
+      <h3>{{ isStarred ? '暂无收藏' : '还没有记录' }}</h3>
+      <p>{{ isStarred ? '点击笔记详情中的⭐即可收藏' : '在上方输入内容，开始构建你的个人知识库吧！' }}</p>
     </div>
     <div v-else>
       <div
@@ -104,7 +108,11 @@
         class="note-list-item"
         @click="$router.push(`/notes/${note.id}`)"
       >
-        <div class="note-title">{{ note.title }}</div>
+        <div class="note-title">
+          <span v-if="note.is_pinned" class="note-badge pin-badge" title="已置顶">📌</span>
+          <span v-if="note.is_starred" class="note-badge star-badge" title="已收藏">⭐</span>
+          {{ note.title }}
+        </div>
         <div class="note-summary">{{ note.summary }}</div>
         <div class="note-meta">
           <span class="source-type" :class="'source-' + note.source_type">{{ sourceTypeLabel(note.source_type) }}</span>
@@ -116,7 +124,8 @@
 </template>
 
 <script>
-import { ref, inject, onMounted } from 'vue'
+import { ref, computed, inject, onMounted, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { notesApi, aiApi } from '../api'
 import MarkdownIt from 'markdown-it'
 
@@ -126,12 +135,15 @@ export default {
   name: 'HomeView',
   setup() {
     const toast = inject('toast')
+    const route = useRoute()
     const rawContent = ref('')
     const sourceType = ref('')
     const loading = ref(false)
     const loadingNotes = ref(false)
     const preview = ref(null)
     const recentNotes = ref([])
+
+    const isStarred = computed(() => route.query.starred === 'true')
 
     const sourceTypes = {
       life: '生活', thought: '感想', knowledge: '知识',
@@ -153,7 +165,10 @@ export default {
     const loadRecentNotes = async () => {
       loadingNotes.value = true
       try {
-        const res = await notesApi.list({ limit: 10 })
+        const params = isStarred.value
+          ? { starred: true, limit: 50 }
+          : { limit: 10 }
+        const res = await notesApi.list(params)
         recentNotes.value = res.data.notes || []
       } catch (e) {
         console.error(e)
@@ -197,10 +212,11 @@ export default {
     }
 
     onMounted(loadRecentNotes)
+    watch(() => route.query.starred, () => { loadRecentNotes() })
 
     return {
       rawContent, sourceType, loading, loadingNotes, preview, recentNotes,
-      sourceTypeLabel, renderMarkdown, formatDate, previewOrganize, submitNote,
+      isStarred, sourceTypeLabel, renderMarkdown, formatDate, previewOrganize, submitNote,
     }
   },
 }

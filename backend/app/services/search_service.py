@@ -36,7 +36,7 @@ def _fulltext_search_sqlite(
         text(
             "SELECT n.* FROM notes n "
             "JOIN notes_fts f ON f.rowid = n.id "
-            "WHERE notes_fts MATCH :query AND n.user_id = :user_id "
+            "WHERE notes_fts MATCH :query AND n.user_id = :user_id AND n.is_deleted = FALSE "
             "ORDER BY rank "
             "LIMIT :limit OFFSET :offset"
         ),
@@ -64,7 +64,7 @@ def _fulltext_search_pg(
     count_result = db.execute(
         text("""
             SELECT COUNT(*) FROM notes
-            WHERE user_id = :user_id
+            WHERE user_id = :user_id AND is_deleted = FALSE
             AND (title ILIKE :pattern
                  OR raw_content ILIKE :pattern
                  OR summary ILIKE :pattern
@@ -77,7 +77,7 @@ def _fulltext_search_pg(
     result = db.execute(
         text("""
             SELECT * FROM notes
-            WHERE user_id = :user_id
+            WHERE user_id = :user_id AND is_deleted = FALSE
             AND (title ILIKE :pattern
                  OR raw_content ILIKE :pattern
                  OR summary ILIKE :pattern
@@ -121,7 +121,7 @@ def semantic_search(
             return []
 
         note_ids = [item["id"] for item in similar_items]
-        result = db.execute(select(Note).where(Note.id.in_(note_ids), Note.user_id == user_id))
+        result = db.execute(select(Note).where(Note.id.in_(note_ids), Note.user_id == user_id, Note.is_deleted == False))
         notes = list(result.scalars().all())
 
         id_order = {item["id"]: idx for idx, item in enumerate(similar_items)}

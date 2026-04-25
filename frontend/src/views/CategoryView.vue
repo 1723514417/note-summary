@@ -100,19 +100,14 @@ export default {
     }
 
     const removeCategory = async (id, name) => {
-      if (!confirm(`确定删除分类「${name}」及其下所有笔记？`)) return
+      if (!confirm(`确定删除分类「${name}」？该分类下的笔记将被移至未分类。`)) return
       try {
-        let res = await notesApi.list({ category_id: id, limit: 1000 })
-        const notes = res.data.notes || []
-        for (const note of notes) {
-          await notesApi.delete(note.id)
-        }
         await categoriesApi.delete(id)
         selectedNotes.value = []
-        toast(`已删除分类「${name}」及 ${notes.length} 条笔记`)
+        toast(`已删除分类「${name}」`)
         loadCategories()
       } catch (e) {
-        toast('删除失败', 'error')
+        toast('删除失败: ' + (e.response?.data?.detail || e.message), 'error')
       }
     }
 

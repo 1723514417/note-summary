@@ -4,8 +4,10 @@
       <div class="sidebar-brand">📝 <span class="nav-text">Note Summary</span></div>
       <ul class="sidebar-nav">
         <li>
-          <router-link to="/" exact-active-class="router-link-active">
-            <span>✏️</span><span class="nav-text"> 记录</span>
+          <router-link to="/" custom v-slot="{ navigate }">
+            <a @click="navigate" :class="{ 'router-link-active': $route.path === '/' && !$route.query.starred }">
+              <span>✏️</span><span class="nav-text"> 记录</span>
+            </a>
           </router-link>
         </li>
         <li>
@@ -16,6 +18,19 @@
         <li>
           <router-link to="/categories" active-class="router-link-active">
             <span>📁</span><span class="nav-text"> 分类</span>
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/?starred=true" custom v-slot="{ navigate }">
+            <a @click="navigate" :class="{ 'router-link-active': $route.query.starred === 'true' }">
+              <span>⭐</span><span class="nav-text"> 已收藏</span>
+            </a>
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/trash" active-class="router-link-active" class="trash-link">
+            <span>🗑️</span><span class="nav-text"> 回收站</span>
+            <span v-if="trashCount > 0" class="trash-badge">{{ trashCount }}</span>
           </router-link>
         </li>
       </ul>
@@ -86,7 +101,7 @@
 <script>
 import { ref, provide, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { authApi } from './api'
+import { authApi, notesApi } from './api'
 
 let toastId = 0
 
@@ -144,6 +159,18 @@ export default {
 
     let mediaQuery = null
 
+    const trashCount = ref(0)
+    let trashInterval = null
+
+    const fetchTrashCount = async () => {
+      try {
+        const res = await notesApi.trashCount()
+        trashCount.value = res.data.count
+      } catch (e) {
+        trashCount.value = 0
+      }
+    }
+
     onMounted(() => {
       const saved = localStorage.getItem('theme')
       if (saved) {
@@ -154,11 +181,16 @@ export default {
       applyTheme()
       mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
       mediaQuery.addEventListener('change', handleSystemThemeChange)
+      fetchTrashCount()
+      trashInterval = setInterval(fetchTrashCount, 30000)
     })
 
     onUnmounted(() => {
       if (mediaQuery) {
         mediaQuery.removeEventListener('change', handleSystemThemeChange)
+      }
+      if (trashInterval) {
+        clearInterval(trashInterval)
       }
     })
 
@@ -198,7 +230,7 @@ export default {
 
     return {
       toasts, username, handleLogout,
-      isDark, toggleTheme,
+      isDark, toggleTheme, trashCount,
       showPasswordModal, pwdForm, pwdError, pwdSuccess, pwdLoading, handleChangePassword,
     }
   },

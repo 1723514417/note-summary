@@ -40,6 +40,13 @@ export const notesApi = {
   get: (id) => api.get(`/notes/${id}`),
   update: (id, data) => api.put(`/notes/${id}`, data),
   delete: (id) => api.delete(`/notes/${id}`),
+  trashList: (params) => api.get('/notes/trash/list', { params }),
+  trashCount: () => api.get('/notes/trash/count'),
+  restore: (id) => api.post(`/notes/${id}/restore`),
+  permanentDelete: (id) => api.delete(`/notes/${id}/permanent`),
+  toggleStar: (id) => api.post(`/notes/${id}/star`),
+  togglePin: (id) => api.post(`/notes/${id}/pin`),
+  links: (id) => api.get(`/notes/${id}/links`),
 }
 
 export const searchApi = {

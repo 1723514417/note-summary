@@ -27,7 +27,7 @@ def api_get_tag_notes(
     result = db.execute(
         select(Note)
         .join(note_tags, Note.id == note_tags.c.note_id)
-        .where(note_tags.c.tag_id == tag_id, Note.user_id == current_user.id)
+        .where(note_tags.c.tag_id == tag_id, Note.user_id == current_user.id, Note.is_deleted == False)
         .order_by(Note.created_at.desc())
         .offset(skip)
         .limit(limit)

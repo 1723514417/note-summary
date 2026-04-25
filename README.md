@@ -9,7 +9,11 @@
 - **多模式搜索** - 支持全文搜索（FTS5）、语义搜索（向量相似度）和混合搜索
 - **分类管理** - 支持树形层级分类，自动/手动归类笔记
 - **标签系统** - 灵活的标签管理，支持多对多关联
-- **向量化存储** - 使用 numpy 内存索引实现高效向量相似度检索
+- **收藏与置顶** - 一键收藏/置顶重要笔记，智能排序（置顶 > 收藏 > 时间）
+- **回收站** - 软删除机制，误删可恢复，30 天自动清理
+- **暗色模式** - 亮色/暗色主题一键切换，自动检测系统偏好
+- **笔记编辑** - 就地编辑模式，支持修改标题、内容、摘要、标签、分类等
+- **向量化存储** - 使用 numpy 内存索引或 pgvector 实现高效向量相似度检索
 
 ## 技术栈
 
@@ -17,9 +21,9 @@
 |------|------|
 | **前端** | Vue 3 + Vue Router + Vite + Axios + Markdown-it |
 | **后端** | FastAPI + SQLAlchemy + Pydantic |
-| **数据库** | SQLite（FTS5 全文搜索 + 向量存储） |
+| **数据库** | SQLite（开发）/ PostgreSQL（生产），自动切换 |
 | **AI** | 阿里云通义千问（DashScope 兼容 OpenAI 接口） |
-| **向量化** | NumPy（内存索引 + 矩阵运算） |
+| **向量化** | NumPy（内存索引）/ pgvector（PostgreSQL） |
 
 ## 项目结构
 
@@ -29,18 +33,20 @@ note-summary/
 │   ├── app/
 │   │   ├── main.py              # FastAPI 应用入口
 │   │   ├── config.py            # 配置管理
-│   │   ├── database.py          # 数据库初始化与连接
+│   │   ├── database.py          # 数据库初始化、连接池、自动迁移
 │   │   ├── schemas.py           # Pydantic 数据模型
 │   │   ├── models/
-│   │   │   └── note.py          # SQLAlchemy ORM 模型
+│   │   │   └── note.py          # SQLAlchemy ORM 模型（Note/Category/Tag）
 │   │   ├── routers/
-│   │   │   ├── notes.py         # 笔记接口
+│   │   │   ├── auth.py          # 认证接口（注册/登录/改密）
+│   │   │   ├── notes.py         # 笔记接口（CRUD + 回收站 + 收藏/置顶）
 │   │   │   ├── search.py        # 搜索接口
 │   │   │   ├── categories.py    # 分类接口
 │   │   │   ├── tags.py          # 标签接口
 │   │   │   └── ai.py            # AI 功能接口
 │   │   └── services/
 │   │       ├── ai_service.py    # AI 调用服务
+│   │       ├── auth_service.py  # 认证服务（JWT + bcrypt）
 │   │       ├── note_service.py  # 笔记业务逻辑
 │   │       ├── search_service.py# 搜索业务逻辑
 │   │       ├── category_service.py
@@ -48,18 +54,20 @@ note-summary/
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.vue              # 根组件
+│   │   ├── App.vue              # 根组件（侧边栏 + 主题 + Toast）
 │   │   ├── main.js              # 入口文件
 │   │   ├── router.js            # 路由配置
 │   │   ├── api/
 │   │   │   └── index.js         # API 请求封装
 │   │   ├── views/
-│   │   │   ├── HomeView.vue     # 记录页
+│   │   │   ├── HomeView.vue     # 记录页（新建 + 最近列表）
 │   │   │   ├── SearchView.vue   # 搜索页
 │   │   │   ├── CategoryView.vue # 分类页
-│   │   │   └── NoteDetailView.vue # 笔记详情页
+│   │   │   ├── NoteDetailView.vue # 笔记详情页（查看/编辑/收藏/置顶）
+│   │   │   ├── TrashView.vue    # 回收站页
+│   │   │   └── LoginView.vue    # 登录/注册页
 │   │   └── styles/
-│   │       └── main.css         # 全局样式
+│   │       └── main.css         # 全局样式（CSS 变量主题系统）
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
@@ -146,6 +154,10 @@ npm run dev
 | keywords | Text | 关键词 |
 | source_type | String(50) | 来源类型（life/thought/knowledge/todo/idea/work） |
 | research_content | Text | AI 研究扩展内容 |
+| is_deleted | Boolean | 是否已删除（软删除标记） |
+| deleted_at | DateTime | 删除时间 |
+| is_starred | Boolean | 是否已收藏 |
+| is_pinned | Boolean | 是否已置顶 |
 | created_at | DateTime | 创建时间 |
 | updated_at | DateTime | 更新时间 |
 
@@ -168,3 +180,4 @@ npm run dev
 | OPENAI_EMBEDDING_API_KEY | 向量模型 API Key（默认复用 OPENAI_API_KEY） | - |
 | OPENAI_EMBEDDING_BASE_URL | 向量模型 API 地址（默认复用 OPENAI_BASE_URL） | - |
 | DATABASE_URL | 数据库连接字符串 | `sqlite+aiosqlite:///./data/knowledge.db` |
+| SECRET_KEY | JWT 签名密钥 | 默认值（启动时告警） |

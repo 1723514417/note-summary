@@ -1,7 +1,7 @@
 from typing import List, Optional
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.models import Category
+from app.models import Category, Note
 from app.schemas import CategoryCreate, CategoryUpdate
 
 
@@ -48,6 +48,17 @@ def delete_category(db: Session, category_id: int, user_id: int) -> bool:
     category = get_category(db, category_id, user_id)
     if not category:
         return False
+
+    result = db.execute(select(Note).where(Note.category_id == category_id, Note.user_id == user_id, Note.is_deleted == False))
+    for note in result.scalars().all():
+        note.category_id = None
+    db.flush()
+
+    result = db.execute(select(Category).where(Category.parent_id == category_id))
+    for child in result.scalars().all():
+        child.parent_id = None
+    db.flush()
+
     db.delete(category)
     db.commit()
     return True

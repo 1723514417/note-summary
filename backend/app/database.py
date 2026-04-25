@@ -79,6 +79,7 @@ def _init_postgres():
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
     Base.metadata.create_all(bind=engine)
     _migrate_add_user_id()
+    _migrate_add_soft_delete()
 
 
 def _migrate_add_user_id():
@@ -101,8 +102,61 @@ def _migrate_add_user_id():
                 print(f"[WARN] migrate {table_name} failed: {e}")
 
 
+def _migrate_add_soft_delete():
+    insp = inspect(engine)
+    if "notes" not in insp.get_table_names():
+        return
+    existing = {col["name"] for col in insp.get_columns("notes")}
+    if "is_deleted" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE notes ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_notes_is_deleted ON notes (is_deleted)"
+                ))
+            print("[MIGRATE] notes.is_deleted added")
+        except Exception as e:
+            print(f"[WARN] migrate notes.is_deleted failed: {e}")
+    if "deleted_at" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE notes ADD COLUMN deleted_at TIMESTAMP NULL"
+                ))
+            print("[MIGRATE] notes.deleted_at added")
+        except Exception as e:
+            print(f"[WARN] migrate notes.deleted_at failed: {e}")
+    if "is_starred" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE notes ADD COLUMN is_starred BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_notes_is_starred ON notes (is_starred)"
+                ))
+            print("[MIGRATE] notes.is_starred added")
+        except Exception as e:
+            print(f"[WARN] migrate notes.is_starred failed: {e}")
+    if "is_pinned" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(
+                    "ALTER TABLE notes ADD COLUMN is_pinned BOOLEAN NOT NULL DEFAULT FALSE"
+                ))
+                conn.execute(text(
+                    "CREATE INDEX IF NOT EXISTS ix_notes_is_pinned ON notes (is_pinned)"
+                ))
+            print("[MIGRATE] notes.is_pinned added")
+        except Exception as e:
+            print(f"[WARN] migrate notes.is_pinned failed: {e}")
+
+
 def _init_sqlite():
     Base.metadata.create_all(bind=engine)
+    _migrate_add_soft_delete()
     with engine.begin() as conn:
         conn.execute(
             text(

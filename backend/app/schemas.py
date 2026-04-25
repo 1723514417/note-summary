@@ -49,6 +49,7 @@ class NoteUpdate(BaseModel):
     keywords: Optional[str] = None
     source_type: Optional[str] = None
     research_content: Optional[str] = None
+    tags: Optional[List[str]] = None
 
 
 class NoteResponse(BaseModel):
@@ -61,6 +62,8 @@ class NoteResponse(BaseModel):
     keywords: Optional[str] = None
     source_type: Optional[str] = None
     research_content: Optional[str] = None
+    is_starred: bool = False
+    is_pinned: bool = False
     created_at: Optional[datetime] = None
     updated_at: Optional[datetime] = None
     tags: List["TagResponse"] = []
@@ -76,6 +79,8 @@ class NoteListItem(BaseModel):
     category_id: Optional[int] = None
     keywords: Optional[str] = None
     source_type: Optional[str] = None
+    is_starred: bool = False
+    is_pinned: bool = False
     created_at: Optional[datetime] = None
 
     class Config:
@@ -145,6 +150,41 @@ class ResearchResponse(BaseModel):
 class SearchResult(BaseModel):
     notes: List[NoteListItem]
     total: int
+
+
+class TrashedNoteListItem(BaseModel):
+    id: int
+    title: str
+    summary: Optional[str] = None
+    source_type: Optional[str] = None
+    created_at: Optional[datetime] = None
+    deleted_at: Optional[datetime] = None
+    tags: List[TagResponse] = []
+
+    class Config:
+        from_attributes = True
+
+
+class TrashedNoteResult(BaseModel):
+    notes: List[TrashedNoteListItem]
+    total: int
+
+
+class BacklinkItem(BaseModel):
+    id: int
+    title: str
+    summary: Optional[str] = None
+    created_at: Optional[str] = None
+
+
+class OutgoingLinkItem(BaseModel):
+    id: int
+    title: str
+
+
+class NoteLinksResponse(BaseModel):
+    backlinks: List[BacklinkItem] = []
+    outgoing: List[OutgoingLinkItem] = []
 
 
 NoteResponse.model_rebuild()

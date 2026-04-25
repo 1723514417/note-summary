@@ -9,6 +9,7 @@ const routes = [
   { path: '/', name: 'home', component: HomeView },
   { path: '/search', name: 'search', component: SearchView },
   { path: '/categories', name: 'categories', component: CategoryView },
+  { path: '/trash', name: 'trash', component: () => import('./views/TrashView.vue') },
   { path: '/notes/:id', name: 'note-detail', component: () => import('./views/NoteDetailView.vue') },
 ]
 
