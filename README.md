@@ -5,21 +5,25 @@
 ## 功能特性
 
 - **AI 智能整理** - 输入原始内容，AI 自动生成标题、摘要、关键词、分类建议和标签
-- **AI 深度研究** - 对笔记主题进行 AI 深度扩展研究，生成更丰富的知识内容
+- **AI 深度研究** - 对笔记主题进行 AI 深度扩展研究，SSE 实时推送进度，生成更丰富的知识内容
 - **多模式搜索** - 支持全文搜索（FTS5）、语义搜索（向量相似度）和混合搜索
 - **分类管理** - 支持树形层级分类，自动/手动归类笔记
-- **标签系统** - 灵活的标签管理，支持多对多关联
+- **标签系统** - 灵活的标签管理，支持重命名、删除
 - **收藏与置顶** - 一键收藏/置顶重要笔记，智能排序（置顶 > 收藏 > 时间）
 - **回收站** - 软删除机制，误删可恢复，30 天自动清理
+- **双向链接** - `[[标题]]` 语法建立笔记关联，关联笔记选择器一键搜索插入，反向引用自动追踪
+- **目录索引** - 笔记详情页右侧目录索引，快速导航到摘要、正文、AI 调研结果、笔记关联
+- **数据统计** - ECharts 可视化统计，笔记趋势图、类型分布图
 - **暗色模式** - 亮色/暗色主题一键切换，自动检测系统偏好
 - **笔记编辑** - 就地编辑模式，支持修改标题、内容、摘要、标签、分类等
 - **向量化存储** - 使用 numpy 内存索引或 pgvector 实现高效向量相似度检索
+- **移动端适配** - 响应式布局，768px 以下自动切换抽屉式侧边栏
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| **前端** | Vue 3 + Vue Router + Vite + Axios + Markdown-it |
+| **前端** | Vue 3 + Vue Router + Vite + Axios + Markdown-it + ECharts |
 | **后端** | FastAPI + SQLAlchemy + Pydantic |
 | **数据库** | SQLite（开发）/ PostgreSQL（生产），自动切换 |
 | **AI** | 阿里云通义千问（DashScope 兼容 OpenAI 接口） |
@@ -36,38 +40,41 @@ note-summary/
 │   │   ├── database.py          # 数据库初始化、连接池、自动迁移
 │   │   ├── schemas.py           # Pydantic 数据模型
 │   │   ├── models/
-│   │   │   └── note.py          # SQLAlchemy ORM 模型（Note/Category/Tag）
+│   │   │   └── note.py          # SQLAlchemy ORM 模型（Note/Category/Tag/NoteLink）
 │   │   ├── routers/
 │   │   │   ├── auth.py          # 认证接口（注册/登录/改密）
-│   │   │   ├── notes.py         # 笔记接口（CRUD + 回收站 + 收藏/置顶）
+│   │   │   ├── notes.py         # 笔记接口（CRUD + 回收站 + 收藏/置顶 + 链接）
 │   │   │   ├── search.py        # 搜索接口
 │   │   │   ├── categories.py    # 分类接口
-│   │   │   ├── tags.py          # 标签接口
-│   │   │   └── ai.py            # AI 功能接口
+│   │   │   ├── tags.py          # 标签接口（列表/重命名/删除）
+│   │   │   ├── stats.py         # 数据统计接口
+│   │   │   └── ai.py            # AI 功能接口（整理 + SSE 调研）
 │   │   └── services/
 │   │       ├── ai_service.py    # AI 调用服务
 │   │       ├── auth_service.py  # 认证服务（JWT + bcrypt）
-│   │       ├── note_service.py  # 笔记业务逻辑
+│   │       ├── note_service.py  # 笔记业务逻辑（含双向链接引擎）
 │   │       ├── search_service.py# 搜索业务逻辑
 │   │       ├── category_service.py
 │   │       └── vector_service.py# 向量索引服务
 │   └── requirements.txt
 ├── frontend/
 │   ├── src/
-│   │   ├── App.vue              # 根组件（侧边栏 + 主题 + Toast）
+│   │   ├── App.vue              # 根组件（侧边栏 + 主题 + Toast + 移动端适配）
 │   │   ├── main.js              # 入口文件
 │   │   ├── router.js            # 路由配置
 │   │   ├── api/
 │   │   │   └── index.js         # API 请求封装
 │   │   ├── views/
-│   │   │   ├── HomeView.vue     # 记录页（新建 + 最近列表）
+│   │   │   ├── HomeView.vue     # 记录页（新建 + 最近列表 + 关联按钮）
 │   │   │   ├── SearchView.vue   # 搜索页
 │   │   │   ├── CategoryView.vue # 分类页
-│   │   │   ├── NoteDetailView.vue # 笔记详情页（查看/编辑/收藏/置顶）
+│   │   │   ├── NoteDetailView.vue # 笔记详情页（查看/编辑/收藏/置顶/链接/目录索引）
+│   │   │   ├── TagsView.vue     # 标签管理页
+│   │   │   ├── StatsView.vue    # 数据统计页（ECharts）
 │   │   │   ├── TrashView.vue    # 回收站页
 │   │   │   └── LoginView.vue    # 登录/注册页
 │   │   └── styles/
-│   │       └── main.css         # 全局样式（CSS 变量主题系统）
+│   │       └── main.css         # 全局样式（60+ CSS 变量主题系统）
 │   ├── index.html
 │   ├── package.json
 │   └── vite.config.js
@@ -126,7 +133,7 @@ start.bat
 ```bash
 # 后端（默认端口 8000）
 cd backend
-python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
 # 前端（默认端口 5173）
 cd frontend
@@ -138,6 +145,71 @@ npm run dev
 - 前端界面：http://localhost:5173
 - 后端 API：http://localhost:8000
 - API 文档（Swagger）：http://localhost:8000/docs
+
+## API 接口总览
+
+### 认证 `/api/auth`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/register` | 用户注册 |
+| POST | `/login` | 用户登录，返回 JWT Token |
+| GET | `/me` | 获取当前用户信息 |
+| POST | `/change-password` | 修改密码 |
+
+### 笔记 `/api/notes`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/` | 创建笔记（AI 自动整理） |
+| GET | `/` | 笔记列表（分页、筛选） |
+| GET | `/trash/list` | 回收站列表 |
+| GET | `/trash/count` | 回收站数量 |
+| GET | `/{id}` | 笔记详情 |
+| GET | `/{id}/links` | 获取笔记关联（反向引用 + 出链） |
+| PUT | `/{id}` | 更新笔记 |
+| DELETE | `/{id}` | 软删除笔记（移至回收站） |
+| POST | `/{id}/star` | 切换收藏状态 |
+| POST | `/{id}/pin` | 切换置顶状态 |
+| POST | `/{id}/restore` | 从回收站恢复 |
+| DELETE | `/{id}/permanent` | 永久删除 |
+
+### 搜索 `/api/search`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/` | 搜索笔记（全文/语义/混合） |
+
+### 分类 `/api/categories`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/` | 分类列表（树形） |
+| POST | `/` | 创建分类 |
+| PUT | `/{id}` | 更新分类 |
+| DELETE | `/{id}` | 删除分类 |
+
+### 标签 `/api/tags`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/` | 标签列表 |
+| GET | `/{id}/notes` | 标签下的笔记列表 |
+| PUT | `/{id}` | 重命名标签 |
+| DELETE | `/{id}` | 删除标签 |
+
+### AI `/api/ai`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| POST | `/organize` | AI 整理内容 |
+| POST | `/research` | AI 深度调研（SSE 流式推送进度） |
+
+### 统计 `/api/stats`
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/overview` | 数据统计概览（计数 + 趋势 + 分布） |
 
 ## 数据模型
 
@@ -168,6 +240,16 @@ npm run dev
 ### Tag（标签）
 
 与笔记多对多关联，通过中间表 `note_tags` 连接。
+
+### NoteLink（笔记链接）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Integer | 主键 |
+| source_id | Integer | 链接来源笔记 ID（外键） |
+| target_id | Integer | 链接目标笔记 ID（外键） |
+
+唯一约束 `(source_id, target_id)` 防止重复链接。
 
 ## 配置说明
 

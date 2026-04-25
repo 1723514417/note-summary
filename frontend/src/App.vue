@@ -1,34 +1,46 @@
 <template>
   <div class="app-layout">
-    <aside class="sidebar">
+    <button class="mobile-menu-btn" @click="sidebarOpen = true">☰</button>
+    <div v-if="sidebarOpen" class="sidebar-overlay" @click="sidebarOpen = false"></div>
+    <aside class="sidebar" :class="{ 'sidebar-open': sidebarOpen }">
       <div class="sidebar-brand">📝 <span class="nav-text">Note Summary</span></div>
       <ul class="sidebar-nav">
         <li>
           <router-link to="/" custom v-slot="{ navigate }">
-            <a @click="navigate" :class="{ 'router-link-active': $route.path === '/' && !$route.query.starred }">
+            <a @click="navigate(); sidebarOpen = false" :class="{ 'router-link-active': $route.path === '/' && !$route.query.starred }">
               <span>✏️</span><span class="nav-text"> 记录</span>
             </a>
           </router-link>
         </li>
         <li>
-          <router-link to="/search" active-class="router-link-active">
+          <router-link to="/search" active-class="router-link-active" @click="sidebarOpen = false">
             <span>🔍</span><span class="nav-text"> 搜索</span>
           </router-link>
         </li>
         <li>
-          <router-link to="/categories" active-class="router-link-active">
+          <router-link to="/categories" active-class="router-link-active" @click="sidebarOpen = false">
             <span>📁</span><span class="nav-text"> 分类</span>
           </router-link>
         </li>
         <li>
+          <router-link to="/tags" active-class="router-link-active" @click="sidebarOpen = false">
+            <span>🏷️</span><span class="nav-text"> 标签</span>
+          </router-link>
+        </li>
+        <li>
+          <router-link to="/stats" active-class="router-link-active" @click="sidebarOpen = false">
+            <span>📊</span><span class="nav-text"> 统计</span>
+          </router-link>
+        </li>
+        <li>
           <router-link to="/?starred=true" custom v-slot="{ navigate }">
-            <a @click="navigate" :class="{ 'router-link-active': $route.query.starred === 'true' }">
+            <a @click="navigate(); sidebarOpen = false" :class="{ 'router-link-active': $route.query.starred === 'true' }">
               <span>⭐</span><span class="nav-text"> 已收藏</span>
             </a>
           </router-link>
         </li>
         <li>
-          <router-link to="/trash" active-class="router-link-active" class="trash-link">
+          <router-link to="/trash" active-class="router-link-active" class="trash-link" @click="sidebarOpen = false">
             <span>🗑️</span><span class="nav-text"> 回收站</span>
             <span v-if="trashCount > 0" class="trash-badge">{{ trashCount }}</span>
           </router-link>
@@ -161,6 +173,7 @@ export default {
 
     const trashCount = ref(0)
     let trashInterval = null
+    const sidebarOpen = ref(false)
 
     const fetchTrashCount = async () => {
       try {
@@ -230,7 +243,7 @@ export default {
 
     return {
       toasts, username, handleLogout,
-      isDark, toggleTheme, trashCount,
+      isDark, toggleTheme, trashCount, sidebarOpen,
       showPasswordModal, pwdForm, pwdError, pwdSuccess, pwdLoading, handleChangePassword,
     }
   },

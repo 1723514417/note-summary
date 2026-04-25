@@ -48,8 +48,11 @@ def create_note_with_ai(db: Session, note_data: NoteCreate, user_id: int) -> Not
 
     try:
         rebuild_links(db, note)
+        db.commit()
     except Exception as e:
         print(f"[DEBUG] rebuild_links failed: {e}")
+        import traceback
+        traceback.print_exc()
 
     try:
         text_for_embedding = f"{note.title} {note.raw_content} {note.summary or ''}"
@@ -161,6 +164,8 @@ def update_note(db: Session, note_id: int, note_data: NoteUpdate, user_id: int) 
         db.commit()
     except Exception as e:
         print(f"[DEBUG] rebuild_links failed: {e}")
+        import traceback
+        traceback.print_exc()
 
     return note
 
@@ -311,6 +316,7 @@ def _extract_link_titles(text: str) -> List[str]:
 def rebuild_links(db: Session, note: Note):
     all_text = " ".join(filter(None, [note.organized_content, note.raw_content, note.summary]))
     titles = _extract_link_titles(all_text)
+    print(f"[rebuild_links] note_id={note.id}, extracted_titles={titles}")
     if not titles:
         db.execute(delete(NoteLink).where(NoteLink.source_id == note.id))
         db.flush()
@@ -325,8 +331,11 @@ def rebuild_links(db: Session, note: Note):
         )
         target = result.scalar_one_or_none()
         if target and target.id != note.id:
+            print(f"[rebuild_links]   matched: '{title}' -> note_id={target.id}")
             link = NoteLink(source_id=note.id, target_id=target.id)
             db.add(link)
+        else:
+            print(f"[rebuild_links]   no match: '{title}' (target={target})")
     db.flush()
 
 

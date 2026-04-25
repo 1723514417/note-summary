@@ -27,6 +27,7 @@
               <button class="btn btn-secondary" @click="previewOrganize" :disabled="!rawContent.trim() || loading">
                 👁️ 预览整理
               </button>
+              <button class="btn btn-secondary" @click="homeLinkPickerOpen = true">🔗 关联</button>
               <button class="btn btn-primary" @click="submitNote" :disabled="!rawContent.trim() || loading">
                 {{ loading ? '⏳ AI 整理中...' : '💾 保存记录' }}
               </button>
@@ -120,6 +121,72 @@
         </div>
       </div>
     </div>
+
+    <div v-if="homeLinkPickerOpen" class="modal-overlay" @click.self="homeLinkPickerOpen = false" @keydown.esc="homeLinkPickerOpen = false">
+      <div class="modal-card modal-card--picker">
+        <h3>
+          <span style="font-size: 18px">🔗</span>
+          选择要关联的笔记
+        </h3>
+        <div class="modal-body">
+          <div class="picker-search-wrap">
+            <span class="picker-search-icon">🔍</span>
+            <input
+              v-model="homeLinkQuery"
+              class="form-input"
+              placeholder="搜索笔记标题或内容..."
+              @input="searchForHomeLink"
+              autofocus
+            />
+          </div>
+          <div v-if="homeLinkLoading" class="picker-empty">
+            <div class="picker-empty-icon">⏳</div>
+            <div class="picker-empty-text">正在搜索...</div>
+          </div>
+          <div v-else-if="homeLinkResults.length === 0 && homeLinkQuery" class="picker-empty">
+            <div class="picker-empty-icon">🔍</div>
+            <div class="picker-empty-text">未找到匹配的笔记</div>
+            <div class="picker-empty-hint">试试其他关键词</div>
+          </div>
+          <div v-else-if="homeLinkResults.length === 0" class="picker-empty">
+            <div class="picker-empty-icon">📝</div>
+            <div class="picker-empty-text">输入关键词搜索笔记</div>
+            <div class="picker-empty-hint">选中后将以 [[标题]] 格式插入到内容中</div>
+          </div>
+          <template v-else>
+            <div class="picker-count">找到 {{ homeLinkResults.length }} 条笔记</div>
+            <div class="picker-list">
+              <div
+                v-for="item in homeLinkResults"
+                :key="item.id"
+                class="picker-item"
+                @click="selectHomeLink(item)"
+              >
+                <div class="picker-item-icon" :class="'source-' + (item.source_type || 'knowledge')">
+                  {{ sourceTypeIcon(item.source_type) }}
+                </div>
+                <div class="picker-item-body">
+                  <span class="picker-title">{{ item.title }}</span>
+                  <span v-if="item.summary" class="picker-summary">{{ item.summary }}</span>
+                  <div class="picker-meta">
+                    <span class="picker-source-badge" :class="'source-' + (item.source_type || 'knowledge')">
+                      {{ sourceTypeLabel(item.source_type) }}
+                    </span>
+                    <span class="picker-date">{{ formatDate(item.created_at) }}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
+        </div>
+        <div class="modal-actions">
+          <div class="picker-footer-hint">
+            <kbd>Esc</kbd> 关闭 &nbsp;·&nbsp; 点击笔记插入链接
+          </div>
+          <button class="btn-cancel" @click="homeLinkPickerOpen = false">取消</button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -142,6 +209,11 @@ export default {
     const loadingNotes = ref(false)
     const preview = ref(null)
     const recentNotes = ref([])
+    const homeLinkPickerOpen = ref(false)
+    const homeLinkQuery = ref('')
+    const homeLinkResults = ref([])
+    const homeLinkLoading = ref(false)
+    let homeLinkTimer = null
 
     const isStarred = computed(() => route.query.starred === 'true')
 
@@ -151,6 +223,13 @@ export default {
     }
 
     const sourceTypeLabel = (type) => sourceTypes[type] || type || '未分类'
+
+    const sourceTypeIcons = {
+      life: '🌿', thought: '💭', knowledge: '📚',
+      todo: '✅', idea: '💡', work: '💼'
+    }
+
+    const sourceTypeIcon = (type) => sourceTypeIcons[type] || '📄'
 
     const renderMarkdown = (content) => {
       return content ? md.render(content) : ''
@@ -212,11 +291,39 @@ export default {
     }
 
     onMounted(loadRecentNotes)
-    watch(() => route.query.starred, () => { loadRecentNotes() })
+    watch(() => route.query.starred, loadRecentNotes)
+
+    const searchForHomeLink = () => {
+      if (homeLinkTimer) clearTimeout(homeLinkTimer)
+      if (!homeLinkQuery.value.trim()) {
+        homeLinkResults.value = []
+        return
+      }
+      homeLinkTimer = setTimeout(async () => {
+        homeLinkLoading.value = true
+        try {
+          const res = await notesApi.list({ keyword: homeLinkQuery.value, limit: 20 })
+          homeLinkResults.value = res.data.notes || []
+        } catch (e) {
+          homeLinkResults.value = []
+        } finally {
+          homeLinkLoading.value = false
+        }
+      }, 300)
+    }
+
+    const selectHomeLink = (item) => {
+      const wikiLink = `[[${item.title}]]`
+      rawContent.value += (rawContent.value ? '\n' : '') + wikiLink
+      homeLinkPickerOpen.value = false
+      toast(`已添加关联：${item.title}`)
+    }
 
     return {
       rawContent, sourceType, loading, loadingNotes, preview, recentNotes,
-      isStarred, sourceTypeLabel, renderMarkdown, formatDate, previewOrganize, submitNote,
+      isStarred, sourceTypeLabel, sourceTypeIcon, renderMarkdown, formatDate, previewOrganize, submitNote,
+      homeLinkPickerOpen, homeLinkQuery, homeLinkResults, homeLinkLoading,
+      searchForHomeLink, selectHomeLink,
     }
   },
 }

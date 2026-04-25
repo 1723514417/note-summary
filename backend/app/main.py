@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from app.database import init_db, SessionLocal
-from app.routers import notes, search, categories, tags, ai, auth
+from app.routers import notes, search, categories, tags, ai, auth, stats
 import os
 import threading
 import time
@@ -49,6 +49,7 @@ app.include_router(search.router)
 app.include_router(categories.router)
 app.include_router(tags.router)
 app.include_router(ai.router)
+app.include_router(stats.router)
 
 frontend_dist = os.path.join(os.path.dirname(os.path.dirname(__file__)), "frontend", "dist")
 if os.path.exists(frontend_dist):

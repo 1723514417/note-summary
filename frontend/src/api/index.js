@@ -63,11 +63,17 @@ export const categoriesApi = {
 export const tagsApi = {
   list: () => api.get('/tags'),
   getNotes: (tagId, params) => api.get(`/tags/${tagId}/notes`, { params }),
+  rename: (id, data) => api.put(`/tags/${id}`, data),
+  delete: (id) => api.delete(`/tags/${id}`),
 }
 
 export const aiApi = {
   organize: (data) => api.post('/ai/organize', data),
   research: (data) => api.post('/ai/research', data),
+}
+
+export const statsApi = {
+  overview: () => api.get('/stats/overview'),
 }
 
 export default api
