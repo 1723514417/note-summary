@@ -6,6 +6,14 @@ from app.config import settings
 
 MULTIMODAL_EMBEDDING_MODELS = {"qwen3-vl-embedding", "qwen2.5-vl-embedding"}
 
+
+def _is_multimodal_model(model: str) -> bool:
+    if model in MULTIMODAL_EMBEDDING_MODELS:
+        return True
+    if model.startswith("tongyi-embedding-vision"):
+        return True
+    return False
+
 client = OpenAI(
     api_key=settings.OPENAI_API_KEY,
     base_url=settings.OPENAI_BASE_URL,
@@ -68,7 +76,8 @@ EXPAND_PROMPT = """你是一个知识扩展助手。用户有一条笔记，请�
 
 def organize_content(raw_content: str) -> dict:
     prompt = ORGANIZE_PROMPT.format(content=raw_content)
-    print(f"[DEBUG] 调用 AI API, model={settings.OPENAI_MODEL}, base_url={settings.OPENAI_BASE_URL}")
+    print(f"[AI] organize_content 入参: raw_content长度={len(raw_content)}, model={settings.OPENAI_MODEL}, base_url={settings.OPENAI_BASE_URL}")
+    print(f"[AI] organize_content 完整prompt: {prompt[:500]}...")
     try:
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
@@ -80,7 +89,7 @@ def organize_content(raw_content: str) -> dict:
             response_format={"type": "json_object"},
         )
     except Exception as e:
-        print(f"[DEBUG] response_format 不支持, 降级重试: {e}")
+        print(f"[AI] organize_content response_format不支持, 降级重试: {e}")
         response = client.chat.completions.create(
             model=settings.OPENAI_MODEL,
             messages=[
@@ -90,6 +99,8 @@ def organize_content(raw_content: str) -> dict:
             temperature=0.3,
         )
     result_text = response.choices[0].message.content.strip()
+    print(f"[AI] organize_content 原始返回(前1000字符): {result_text[:1000]}")
+    print(f"[AI] organize_content usage: prompt_tokens={getattr(response.usage, 'prompt_tokens', None)}, completion_tokens={getattr(response.usage, 'completion_tokens', None)}, finish_reason={response.choices[0].finish_reason}")
     if result_text.startswith("```"):
         result_text = result_text.split("```")[1]
         if result_text.startswith("json"):
@@ -98,14 +109,18 @@ def organize_content(raw_content: str) -> dict:
     try:
         parsed = json.loads(result_text)
     except json.JSONDecodeError:
+        print(f"[AI] organize_content JSON解析失败, 尝试提取花括号内容, 原始文本(前500字符): {result_text[:500]}")
         start = result_text.find("{")
         end = result_text.rfind("}") + 1
         if start >= 0 and end > start:
             parsed = json.loads(result_text[start:end])
         else:
+            print(f"[AI] organize_content 无法提取JSON, 完整返回内容: {result_text}")
             raise
     if not isinstance(parsed, dict):
-        raise ValueError(f"AI 返回了非 dict 类型: {type(parsed)}")
+        print(f"[AI] organize_content 返回类型异常: {type(parsed)}, 内容: {str(parsed)[:500]}")
+        raise ValueError(f"AI 返回了非 dict 类型: {type(parsed)}, 内容: {str(parsed)[:200]}")
+    print(f"[AI] organize_content 解析成功: title={parsed.get('title')}, category={parsed.get('suggested_category')}, tags={parsed.get('suggested_tags')}")
     return parsed
 
 def research_topic(topic: str, existing_content: str = "") -> str:
@@ -113,6 +128,7 @@ def research_topic(topic: str, existing_content: str = "") -> str:
         existing_content=existing_content or "暂无已有知识内容",
         topic=topic,
     )
+    print(f"[AI] research_topic 入参: topic={topic}, existing_content长度={len(existing_content)}, model={settings.OPENAI_MODEL}")
     response = client.chat.completions.create(
         model=settings.OPENAI_MODEL,
         messages=[
@@ -121,11 +137,15 @@ def research_topic(topic: str, existing_content: str = "") -> str:
         ],
         temperature=0.5,
     )
-    return response.choices[0].message.content.strip()
+    result = response.choices[0].message.content.strip()
+    print(f"[AI] research_topic usage: prompt_tokens={getattr(response.usage, 'prompt_tokens', None)}, completion_tokens={getattr(response.usage, 'completion_tokens', None)}, finish_reason={response.choices[0].finish_reason}")
+    print(f"[AI] research_topic 返回(前500字符): {result[:500]}")
+    return result
 
 
 def expand_note(title: str, content: str) -> str:
     prompt = EXPAND_PROMPT.format(title=title, content=content)
+    print(f"[AI] expand_note 入参: title={title}, content长度={len(content)}, model={settings.OPENAI_MODEL}")
     response = client.chat.completions.create(
         model=settings.OPENAI_MODEL,
         messages=[
@@ -134,17 +154,20 @@ def expand_note(title: str, content: str) -> str:
         ],
         temperature=0.5,
     )
-    return response.choices[0].message.content.strip()
+    result = response.choices[0].message.content.strip()
+    print(f"[AI] expand_note usage: prompt_tokens={getattr(response.usage, 'prompt_tokens', None)}, completion_tokens={getattr(response.usage, 'completion_tokens', None)}, finish_reason={response.choices[0].finish_reason}")
+    print(f"[AI] expand_note 返回(前500字符): {result[:500]}")
+    return result
 
 
-EMBEDDING_DIMENSION = 2560
+EMBEDDING_DIMENSION = 1024
 
 
 def generate_embedding(text: str) -> List[float]:
     model = settings.OPENAI_EMBEDDING_MODEL
-    print(f"[DEBUG] 调用 Embedding API, model={model}, base_url={settings.OPENAI_EMBEDDING_BASE_URL}")
+    print(f"[AI] generate_embedding 入参: text长度={len(text)}, model={model}, base_url={settings.OPENAI_EMBEDDING_BASE_URL}, is_multimodal={_is_multimodal_model(model)}")
 
-    if model in MULTIMODAL_EMBEDDING_MODELS:
+    if _is_multimodal_model(model):
         return _generate_multimodal_embedding(text, model)
 
     return _generate_text_embedding(text, model)
@@ -152,33 +175,39 @@ def generate_embedding(text: str) -> List[float]:
 
 def _generate_multimodal_embedding(text: str, model: str) -> List[float]:
     url = "https://dashscope.aliyuncs.com/api/v1/services/embeddings/multimodal-embedding/multimodal-embedding"
-    headers = {
-        "Authorization": f"Bearer {settings.OPENAI_EMBEDDING_API_KEY}",
-        "Content-Type": "application/json",
-    }
     payload = {
         "model": model,
         "input": {
             "contents": [{"text": text}]
         },
+        "parameters": {
+            "dimension": EMBEDDING_DIMENSION,
+        },
     }
-    resp = httpx.post(url, headers=headers, json=payload, timeout=120)
+    print(f"[AI] _generate_multimodal_embedding 请求: url={url}, model={model}, dimension={EMBEDDING_DIMENSION}, text长度={len(text)}")
+    resp = httpx.post(url, headers={
+        "Authorization": f"Bearer {settings.OPENAI_EMBEDDING_API_KEY}",
+        "Content-Type": "application/json",
+    }, json=payload, timeout=120)
     data = resp.json()
+    print(f"[AI] _generate_multimodal_embedding 响应状态码: {resp.status_code}")
     if resp.status_code != 200 or "output" not in data:
+        print(f"[AI] _generate_multimodal_embedding 失败, 完整响应: {data}")
         raise RuntimeError(f"DashScope multimodal embedding API 调用失败: {data}")
     embedding = data["output"]["embeddings"][0]["embedding"]
-    print(f"[DEBUG] Multimodal Embedding 生成完成, 维度={len(embedding)}")
+    print(f"[AI] _generate_multimodal_embedding 成功, 维度={len(embedding)}, request_id={data.get('request_id')}")
     return embedding
 
 
 def _generate_text_embedding(text: str, model: str) -> List[float]:
+    print(f"[AI] _generate_text_embedding 请求: model={model}, dimensions={EMBEDDING_DIMENSION}, text长度={len(text)}, base_url={settings.OPENAI_EMBEDDING_BASE_URL}")
     response = embedding_client.embeddings.create(
         model=model,
         input=text,
         dimensions=EMBEDDING_DIMENSION,
     )
     embedding = response.data[0].embedding
-    print(f"[DEBUG] Text Embedding 生成完成, 维度={len(embedding)}")
+    print(f"[AI] _generate_text_embedding 成功, 维度={len(embedding)}, model={model}, usage={getattr(response.usage, 'total_tokens', None)}")
     if len(embedding) != EMBEDDING_DIMENSION:
         raise ValueError(f"Embedding 维度不匹配: 期望 {EMBEDDING_DIMENSION}, 实际 {len(embedding)}")
     return embedding

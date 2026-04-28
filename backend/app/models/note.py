@@ -79,4 +79,4 @@ if is_postgres():
         __tablename__ = "note_embeddings"
 
         note_id = Column(Integer, ForeignKey("notes.id", ondelete="CASCADE"), primary_key=True)
-        embedding = Column(Vector(2560), nullable=False)
+        embedding = Column(Vector(1024), nullable=False)

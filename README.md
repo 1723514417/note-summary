@@ -18,6 +18,7 @@
 - **笔记编辑** - 就地编辑模式，支持修改标题、内容、摘要、标签、分类等
 - **向量化存储** - 使用 numpy 内存索引或 pgvector 实现高效向量相似度检索
 - **移动端适配** - 响应式布局，768px 以下自动切换抽屉式侧边栏
+- **用户认证** - JWT 认证、用户注册登录、密码修改、数据隔离
 
 ## 技术栈
 
@@ -28,6 +29,7 @@
 | **数据库** | SQLite（开发）/ PostgreSQL（生产），自动切换 |
 | **AI** | 阿里云通义千问（DashScope 兼容 OpenAI 接口） |
 | **向量化** | NumPy（内存索引）/ pgvector（PostgreSQL） |
+| **认证** | JWT（HS256）+ bcrypt 密码哈希 |
 
 ## 项目结构
 
@@ -40,7 +42,8 @@ note-summary/
 │   │   ├── database.py          # 数据库初始化、连接池、自动迁移
 │   │   ├── schemas.py           # Pydantic 数据模型
 │   │   ├── models/
-│   │   │   └── note.py          # SQLAlchemy ORM 模型（Note/Category/Tag/NoteLink）
+│   │   │   ├── note.py          # SQLAlchemy ORM 模型（Note/Category/Tag/NoteLink）
+│   │   │   └── user.py          # 用户模型（User）
 │   │   ├── routers/
 │   │   │   ├── auth.py          # 认证接口（注册/登录/改密）
 │   │   │   ├── notes.py         # 笔记接口（CRUD + 回收站 + 收藏/置顶 + 链接）
@@ -80,7 +83,8 @@ note-summary/
 │   └── vite.config.js
 ├── .env                         # 环境变量（需自行创建）
 ├── .env.example                 # 环境变量示例
-└── start.bat                    # Windows 一键启动脚本
+├── start.bat                    # Windows 一键启动脚本
+└── start.sh                     # Linux/macOS 一键启动脚本
 ```
 
 ## 快速开始
@@ -103,13 +107,27 @@ cp .env.example .env
 OPENAI_API_KEY=your-dashscope-api-key
 OPENAI_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 OPENAI_MODEL=qwen3.5-27b
+
+OPENAI_EMBEDDING_API_KEY=your-dashscope-api-key
+OPENAI_EMBEDDING_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 OPENAI_EMBEDDING_MODEL=tongyi-embedding-vision-flash
+
+DATABASE_URL=postgresql://postgres:password@localhost:5432/knowledge_db
+
+SECRET_KEY=change-this-to-a-random-secret-key
 ```
 
 ### 2. 安装后端依赖
 
 ```bash
 cd backend
+python -m venv venv
+
+# Windows
+venv\Scripts\activate
+# Linux/macOS
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
@@ -122,10 +140,15 @@ npm install
 
 ### 4. 启动服务
 
-**方式一：一键启动（Windows）**
+**方式一：一键启动**
 
 ```bash
+# Windows
 start.bat
+
+# Linux/macOS
+chmod +x start.sh
+./start.sh
 ```
 
 **方式二：分别启动**
@@ -133,16 +156,16 @@ start.bat
 ```bash
 # 后端（默认端口 8000）
 cd backend
-py -m uvicorn app.main:app --host 127.0.0.1 --port 8000
+python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 
-# 前端（默认端口 5173）
+# 前端（默认端口 3000）
 cd frontend
 npm run dev
 ```
 
 ### 5. 访问应用
 
-- 前端界面：http://localhost:5173
+- 前端界面：http://localhost:3000
 - 后端 API：http://localhost:8000
 - API 文档（Swagger）：http://localhost:8000/docs
 
@@ -213,6 +236,15 @@ npm run dev
 
 ## 数据模型
 
+### User（用户）
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| id | Integer | 主键 |
+| username | String(50) | 用户名（唯一） |
+| hashed_password | String(255) | bcrypt 哈希密码 |
+| created_at | DateTime | 创建时间 |
+
 ### Note（笔记）
 
 | 字段 | 类型 | 说明 |
@@ -226,6 +258,7 @@ npm run dev
 | keywords | Text | 关键词 |
 | source_type | String(50) | 来源类型（life/thought/knowledge/todo/idea/work） |
 | research_content | Text | AI 研究扩展内容 |
+| user_id | Integer | 所属用户 |
 | is_deleted | Boolean | 是否已删除（软删除标记） |
 | deleted_at | DateTime | 删除时间 |
 | is_starred | Boolean | 是否已收藏 |
@@ -261,5 +294,20 @@ npm run dev
 | OPENAI_EMBEDDING_MODEL | 向量嵌入模型 | `tongyi-embedding-vision-flash` |
 | OPENAI_EMBEDDING_API_KEY | 向量模型 API Key（默认复用 OPENAI_API_KEY） | - |
 | OPENAI_EMBEDDING_BASE_URL | 向量模型 API 地址（默认复用 OPENAI_BASE_URL） | - |
-| DATABASE_URL | 数据库连接字符串 | `sqlite+aiosqlite:///./data/knowledge.db` |
+| DATABASE_URL | 数据库连接字符串 | `postgresql://postgres:postgres@localhost:5432/knowledge_db` |
 | SECRET_KEY | JWT 签名密钥 | 默认值（启动时告警） |
+
+## 生产部署
+
+详细的 Linux 生产环境部署指南请参考 [DEPLOY.md](DEPLOY.md)，包含：
+
+- 服务器要求与依赖安装
+- PostgreSQL + pgvector 配置
+- 前端构建与后端托管
+- Systemd 服务配置
+- Nginx 反向代理 + HTTPS
+- 运维常用命令
+
+## 许可证
+
+MIT License
